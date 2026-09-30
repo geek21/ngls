@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>الخطة الأسبوعية | School Weekly Plan</title>
+
+<!-- External Libraries (CDN) -->
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<!-- App Styles -->
+<link rel="stylesheet" href="css/app.css" />
+
+</head>
+<body class="bg-slate-100 min-h-screen">
+
+<!-- ============ LOADING ============ -->
+<div id="loadingOverlay" class="fixed inset-0 bg-white/80 z-50 flex items-center justify-center">
+  <div class="text-slate-500">جاري التحميل... Loading...</div>
+</div>
+
+<!-- ============ LANDING / LOGIN ============ -->
+<div id="view-landing" class="hidden min-h-screen flex items-center justify-center p-4">
+  <div class="card w-full max-w-md p-8 fade-in">
+    <div class="flex flex-col items-center mb-6">
+      <img id="landingLogo" src="" class="w-20 h-20 rounded-full object-cover mb-3 border" />
+      <h1 id="landingSchoolName" class="text-xl font-bold text-slate-800"></h1>
+      <p class="text-slate-400 text-sm mt-1">Weekly Plan System</p>
+    </div>
+
+    <div id="deptPinBox">
+      <label class="block text-sm font-medium text-slate-600 mb-1">اختر المادة / Subject</label>
+      <select id="deptSelect" class="w-full border rounded-lg p-2 mb-4" onchange="document.getElementById('deptPinInput').focus()"></select>
+
+      <label class="block text-sm font-medium text-slate-600 mb-1">رمز الدخول PIN</label>
+      <input id="deptPinInput" type="password" maxlength="4" inputmode="numeric"
+             class="w-full border rounded-lg p-2 mb-2 tracking-widest text-center text-lg" placeholder="****" />
+      <p id="deptPinError" class="text-red-500 text-sm hidden mb-2">رمز غير صحيح / Wrong PIN</p>
+
+      <button id="teacherLoginBtn" onclick="handleTeacherLogin()" class="w-full bg-blue-600 text-white rounded-lg py-2 font-medium hover:bg-blue-700 transition">
+        دخول المعلم / Teacher Login
+      </button>
+    </div>
+
+    <div class="my-5 flex items-center gap-2 text-slate-300 text-xs">
+      <div class="h-px bg-slate-200 flex-1"></div> أو <div class="h-px bg-slate-200 flex-1"></div>
+    </div>
+
+    <button onclick="openAdminPinPrompt()" class="w-full border border-slate-300 rounded-lg py-2 text-slate-600 hover:bg-slate-50 transition">
+      دخول الإدارة / Admin Login
+    </button>
+  </div>
+</div>
+
+<!-- ============ ADMIN PIN MODAL ============ -->
+<div id="adminPinModal" class="hidden fixed inset-0 bg-black/40 z-40 flex items-center justify-center p-4" onclick="closeModalOnBackdrop(event, 'adminPinModal')">
+  <div class="card p-4 sm:p-6 w-full max-w-sm">
+    <h3 class="font-bold mb-3">Admin PIN</h3>
+    <input id="adminPinInput" type="password" maxlength="4" inputmode="numeric" class="w-full border rounded-lg p-2 mb-2 text-center tracking-widest" placeholder="****"/>
+    <p id="adminPinError" class="text-red-500 text-sm hidden mb-2">رمز غير صحيح</p>
+    <div class="flex gap-2">
+      <button onclick="closeModal('adminPinModal')" class="flex-1 border rounded-lg py-2">إلغاء</button>
+      <button id="adminLoginBtn" onclick="handleAdminLogin()" class="flex-1 bg-blue-600 text-white rounded-lg py-2">دخول</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ TEACHER PORTAL ============ -->
+<div id="view-teacher" class="hidden min-h-screen">
+  <header id="teacherHeader" class="text-white p-4 no-print">
+    <div class="max-w-3xl mx-auto flex items-center justify-between flex-wrap gap-2">
+      <div>
+        <div id="teacherDeptName" class="font-bold text-lg"></div>
+        <div class="text-white/80 text-xs" id="teacherSchoolLine"></div>
+      </div>
+      <button onclick="guardedLogout()" class="bg-white/20 hover:bg-white/30 rounded-lg px-3 py-1 text-sm">خروج / Logout</button>
+    </div>
+  </header>
+
+  <div class="max-w-3xl mx-auto p-4 pb-28 sm:pb-4">
+    <div id="teacherLockedNote" class="hidden bg-amber-50 border border-amber-200 text-amber-800 text-sm rounded-lg p-3 mb-4 no-print">
+      🔒 هذا الرابط مخصص للأسبوع <span id="lockedWeekText" class="font-bold"></span> فقط ولا يمكن تغييره من هنا.
+    </div>
+    <div id="teacherStickyBar" class="card p-4 mb-4 grid grid-cols-2 sm:grid-cols-4 gap-3 no-print" style="background:#f1f5f9">
+      <div>
+        <label class="text-xs text-slate-500">الصف / Grade</label>
+        <select id="teacherGradeSelect" class="w-full border rounded-lg p-2" onchange="guardedLoadTeacherPlan(this)"></select>
+      </div>
+      <div id="teacherSubSubjectWrap" class="hidden">
+        <label class="text-xs text-slate-500">الفرع / Branch</label>
+        <select id="teacherSubSelect" class="w-full border rounded-lg p-2" onchange="guardedLoadTeacherPlan(this)"></select>
+      </div>
+      <div>
+        <label class="text-xs text-slate-500">الفصل / Term</label>
+        <select id="teacherTermSelect" class="w-full border rounded-lg p-2" onchange="guardedLoadTeacherPlan(this)">
+          <option value="1">Term 1</option><option value="2">Term 2</option><option value="3">Term 3</option>
+        </select>
+      </div>
+      <div>
+        <label class="text-xs text-slate-500">الأسبوع / Week</label>
+        <input id="teacherWeekInput" type="number" min="1" max="40" value="1" class="w-full border rounded-lg p-2" onchange="guardedLoadTeacherPlan(this)"/>
+      </div>
+    </div>
+
+    <div class="flex justify-end mb-3 no-print">
+      <button onclick="copyFromPreviousWeek()" class="text-sm bg-slate-200 hover:bg-slate-300 rounded-lg px-3 py-2">
+        ⬅ نسخ من أسبوع سابق / Copy previous week
+      </button>
+    </div>
+
+    <div id="teacherDaysContainer" class="space-y-4"></div>
+
+    <div id="teacherSaveBar" class="mobile-floating sm:mt-4 sm:mb-10">
+      <p id="teacherSaveMsg" class="text-center text-sm text-green-600 hidden mb-2">✔ تم الحفظ / Saved</p>
+      <button onclick="saveTeacherPlan()" class="no-print w-full text-white rounded-lg py-3 font-bold shadow-lg sm:shadow-none" id="teacherSaveBtn">
+        حفظ الخطة / Save Plan
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ ADMIN DASHBOARD ============ -->
+<div id="view-admin" class="hidden min-h-screen">
+  <header class="bg-slate-900 text-white p-4 no-print">
+    <div class="max-w-6xl mx-auto flex items-center justify-between flex-wrap gap-3">
+      <div class="flex items-center gap-3">
+        <img id="adminLogo" class="w-10 h-10 rounded-full object-cover border border-white/30" src="" />
+        <div>
+          <div id="adminSchoolName" class="font-bold"></div>
+          <div class="text-white/60 text-xs">Admin Dashboard</div>
+        </div>
+      </div>
+      <div class="flex items-center gap-2 flex-wrap">
+        <select id="adminTermSelect" class="rounded-lg p-2 text-slate-800 text-sm" onchange="refreshAdminDashboard()">
+          <option value="1">Term 1</option><option value="2">Term 2</option><option value="3">Term 3</option>
+        </select>
+        <input id="adminWeekInput" type="number" min="1" max="40" value="1" class="rounded-lg p-2 text-slate-800 text-sm w-20" onchange="refreshAdminDashboard()"/>
+        <button onclick="openSettingsModal()" class="bg-white/10 hover:bg-white/20 rounded-lg px-3 py-2 text-sm">⚙ الإعدادات</button>
+        <button onclick="logout()" class="bg-white/10 hover:bg-white/20 rounded-lg px-3 py-2 text-sm">خروج</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="max-w-6xl mx-auto p-4">
+
+    <!-- Action bar (kept always visible — quick actions used regardless of tab) -->
+    <div class="flex flex-wrap gap-2 mb-4 no-print">
+      <button onclick="exportExcel()" class="bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg px-4 py-2 text-sm font-medium min-h-[40px]">⬇ تصدير Excel</button>
+      <button onclick="openPrintPreview()" class="bg-slate-700 hover:bg-slate-800 text-white rounded-lg px-4 py-2 text-sm font-medium min-h-[40px]">🖨 معاينة الطباعة / PDF</button>
+      <button onclick="openManageModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg px-4 py-2 text-sm font-medium min-h-[40px]">📚 إدارة المواد والأفرع</button>
+      <button onclick="openDaysManagerModal()" class="bg-amber-600 hover:bg-amber-700 text-white rounded-lg px-4 py-2 text-sm font-medium min-h-[40px]">📅 نصاب الأيام</button>
+    </div>
+
+    <!-- Simple 2-tab layout: keeps each screen focused on ONE purpose (KISS),
+         and dramatically shortens the scroll on mobile. -->
+    <div class="flex gap-4 border-b mb-4 no-print">
+      <button id="adminTabBtn-overview" onclick="switchAdminTab('overview')" class="admin-tab-btn active px-2 py-2 text-sm">📊 نظرة عامة / Overview</button>
+      <button id="adminTabBtn-links" onclick="switchAdminTab('links')" class="admin-tab-btn px-2 py-2 text-sm">🔗 الروابط الذكية / Smart Links</button>
+    </div>
+
+    <!-- ===== TAB: Overview ===== -->
+    <div id="adminTab-overview">
+      <!-- KPI cards -->
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6 no-print">
+        <div class="card p-4">
+          <div class="text-slate-500 text-sm mb-2">نسبة الإنجاز الكلية</div>
+          <div class="w-full bg-slate-200 rounded-full h-3 mb-2">
+            <div id="kpiProgressBar" class="bg-green-500 h-3 rounded-full" style="width:0%"></div>
+          </div>
+          <div id="kpiPercentText" class="font-bold text-lg">0%</div>
+        </div>
+        <div class="card p-4">
+          <div class="text-slate-500 text-sm mb-2">المواد المكتملة</div>
+          <div id="kpiCompletedText" class="font-bold text-2xl text-green-600">0</div>
+        </div>
+        <div class="card p-4">
+          <div class="text-slate-500 text-sm mb-2">الخطط المعلقة</div>
+          <div id="kpiPendingText" class="font-bold text-2xl text-red-500">0</div>
+        </div>
+      </div>
+
+      <!-- Per-department breakdown + weekly trend -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6 no-print">
+        <div class="card p-4">
+          <div class="flex items-center justify-between mb-3">
+            <div class="font-bold">تفصيل الإنجاز حسب المادة / Per-Subject Breakdown</div>
+            <div class="text-xs text-slate-400">الأقسام الأكثر تأخراً أولاً</div>
+          </div>
+          <div id="deptStatsList" class="space-y-3"></div>
+        </div>
+        <div class="card p-4">
+          <div class="flex items-center justify-between mb-3">
+            <div class="font-bold">اتجاه الإنجاز (آخر 6 أسابيع) / Weekly Trend</div>
+          </div>
+          <div id="weeklyTrendChart" class="flex items-end gap-2 h-32"></div>
+          <div class="grid mt-2 text-[10px] text-slate-400" id="weeklyTrendLabels" style="grid-auto-flow:column"></div>
+        </div>
+      </div>
+
+      <!-- Matrix -->
+      <div class="card p-4 overflow-x-auto no-print">
+        <table class="min-w-full text-sm" id="matrixTable">
+          <thead></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ===== TAB: Smart Links ===== -->
+    <div id="adminTab-links" class="hidden">
+      <div class="card p-4 mb-6 no-print">
+        <div class="flex items-center justify-between flex-wrap gap-2 mb-3">
+          <div>
+            <div class="font-bold">🔗 روابط الأقسام الذكية / Smart Weekly Links</div>
+            <div class="text-xs text-slate-400">رابط مختلف لكل مادة ولكل أسبوع، يُنشأ من هنا فقط بواسطة مدير النظام</div>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <button id="generateLinksBtn" onclick="generateWeekLinks()" class="bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-4 py-2 text-sm font-medium min-h-[40px]">
+              ⚡ توليد روابط هذا الأسبوع لكل الأقسام
+            </button>
+            <button id="sendAllWhatsappBtn" onclick="sendAllLinksWhatsapp()" class="bg-green-600 hover:bg-green-700 text-white rounded-lg px-4 py-2 text-sm font-medium min-h-[40px]">
+              📤 إرسال كل الروابط عبر واتساب
+            </button>
+          </div>
+        </div>
+        <div id="linksList" class="space-y-2"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ============ SETTINGS MODAL ============ -->
+<div id="settingsModal" class="hidden fixed inset-0 bg-black/40 z-40 flex items-center justify-center p-4 overflow-y-auto" onclick="closeModalOnBackdrop(event, 'settingsModal')">
+  <div class="card p-4 sm:p-6 w-full max-w-lg my-8">
+    <h3 class="font-bold text-lg mb-4">⚙ إعدادات النظام / System Settings</h3>
+
+    <label class="block text-sm font-medium mb-1">اسم المدرسة (عربي)</label>
+    <input id="setSchoolNameAr" class="w-full border rounded-lg p-2 mb-3"/>
+
+    <label class="block text-sm font-medium mb-1">School Name (English)</label>
+    <input id="setSchoolNameEn" class="w-full border rounded-lg p-2 mb-3"/>
+
+    <label class="block text-sm font-medium mb-1">رابط اللوجو / Logo URL</label>
+    <input id="setLogoUrl" class="w-full border rounded-lg p-2 mb-3" placeholder="https://..."/>
+
+    <label class="block text-sm font-medium mb-1">عدد الصفوف / Total Grades</label>
+    <input id="setTotalGrades" type="number" min="1" max="30" class="w-full border rounded-lg p-2 mb-3"/>
+
+    <label class="block text-sm font-medium mb-1">السنة الدراسية / Academic Year</label>
+    <input id="setAcademicYear" class="w-full border rounded-lg p-2 mb-3"/>
+
+    <label class="block text-sm font-medium mb-1">
+      تاريخ بداية العام الدراسي / School Year Start Date
+      <span class="text-slate-400 font-normal text-xs block">أحد الأسبوع الأول — Sunday of Week 1</span>
+    </label>
+    <input id="setSchoolStartDate" type="date" class="w-full border rounded-lg p-2 mb-3" onchange="_updateStartDatePreview()"/>
+    <div id="startDatePreview" class="text-xs text-slate-500 -mt-2 mb-3 hidden">
+      ✓ الأسبوع 1: <span id="startDatePreviewText"></span>
+    </div>
+
+    <div class="flex gap-2 mb-4">
+      <button onclick="closeModal('settingsModal')" class="flex-1 border rounded-lg py-2">إلغاء</button>
+      <button onclick="saveSettings()" class="flex-1 bg-blue-600 text-white rounded-lg py-2">حفظ</button>
+    </div>
+
+    <div class="border-t pt-4">
+      <h4 class="font-medium mb-2 text-sm">🔒 تغيير رمز الأدمن / Change Admin PIN</h4>
+      <p class="text-xs text-slate-400 mb-2">لأسباب أمنية، لا يمكن عرض الرمز الحالي — فقط تعيين رمز جديد.</p>
+      <input id="newAdminPin" maxlength="4" inputmode="numeric" placeholder="الرمز الجديد (4 أرقام)" class="w-full border rounded-lg p-2 mb-2 text-center tracking-widest"/>
+      <button onclick="changeAdminPin()" class="w-full bg-indigo-600 text-white rounded-lg py-2 text-sm">تغيير الرمز</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MANAGE DEPARTMENTS MODAL ============ -->
+<div id="manageModal" class="hidden fixed inset-0 bg-black/40 z-40 flex items-center justify-center p-4 overflow-y-auto" onclick="closeModalOnBackdrop(event, 'manageModal')">
+  <div class="card p-4 sm:p-6 w-full max-w-2xl my-8">
+    <div class="flex justify-between items-center mb-4">
+      <h3 class="font-bold text-lg">📚 إدارة المواد والأفرع</h3>
+      <button onclick="closeModal('manageModal')" class="text-slate-400 hover:text-slate-600">✕</button>
+    </div>
+
+    <div id="manageDeptList" class="space-y-3 mb-5"></div>
+
+    <div class="border-t pt-4">
+      <h4 class="font-medium mb-2">+ إضافة مادة جديدة</h4>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-2">
+        <input id="newDeptCode" placeholder="Code (e.g. ART)" class="border rounded-lg p-2"/>
+        <input id="newDeptName" placeholder="Name" class="border rounded-lg p-2"/>
+        <input id="newDeptPin" placeholder="PIN (4 digits)" maxlength="4" class="border rounded-lg p-2"/>
+        <input id="newDeptColor" type="color" value="#334155" class="border rounded-lg p-1 h-10"/>
+        <input id="newDeptDays" type="number" min="1" max="5" value="5" placeholder="Days/week" class="border rounded-lg p-2"/>
+      </div>
+      <button onclick="addDepartment()" class="bg-indigo-600 text-white rounded-lg px-4 py-2 text-sm">إضافة المادة</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ SEND QUEUE MODAL (WhatsApp) ============ -->
+<!-- IMPORTANT (mobile + desktop): a script can NEVER reliably auto-open
+     several WhatsApp windows/apps from one click — browsers and mobile OSes
+     block that as popup/app-switch spam. The only approach that works
+     everywhere is a real tappable link per department, one genuine tap
+     each. This modal lists them for a fast one-tap-per-department flow. -->
+<div id="sendQueueModal" class="hidden fixed inset-0 bg-black/40 z-40 flex items-center justify-center p-4 overflow-y-auto" onclick="closeModalOnBackdrop(event, 'sendQueueModal')">
+  <div class="card p-4 sm:p-6 w-full max-w-lg my-8">
+    <div class="flex justify-between items-center mb-2">
+      <h3 class="font-bold text-lg">📤 إرسال الروابط عبر واتساب</h3>
+      <button onclick="closeModal('sendQueueModal')" class="text-slate-400 hover:text-slate-600">✕</button>
+    </div>
+    <p class="text-xs text-slate-500 mb-4">اضغط "فتح واتساب" أمام كل قسم لفتح محادثة جاهزة (يتطلب تثبيت واتساب على جهازك). إذا لم يكن واتساب متاحاً لديك، استخدم "نسخ الرسالة" ثم الصقها في أي وسيلة تواصل أخرى.</p>
+    <div id="sendQueueList" class="space-y-2 mb-3"></div>
+    <div id="sendQueueSkipped" class="text-xs text-slate-500"></div>
+  </div>
+</div>
+
+<!-- ============ PRINT PREVIEW MODAL ============ -->
+<div id="printPreviewModal" class="hidden fixed inset-0 bg-black/40 z-40 flex items-center justify-center p-4 overflow-y-auto no-print" onclick="closeModalOnBackdrop(event, 'printPreviewModal')">
+  <div class="card p-4 sm:p-6 w-full max-w-4xl my-8">
+    <div class="flex justify-between items-center flex-wrap gap-2 mb-4 no-print">
+      <h3 class="font-bold text-lg">معاينة الطباعة / Print Preview</h3>
+      <div class="flex flex-wrap gap-2">
+        <select id="printGradeSelect" class="border rounded-lg p-2 text-sm"></select>
+        <button onclick="window.print()" class="bg-slate-800 text-white rounded-lg px-4 py-2 text-sm min-h-[40px]">🖨 طباعة / Save PDF</button>
+        <button onclick="openPdfExportQueue()" class="bg-blue-600 text-white rounded-lg px-4 py-2 text-sm min-h-[40px]">📥 تصدير PDF لكل الصفوف</button>
+        <button onclick="closeModal('printPreviewModal')" class="border rounded-lg px-4 py-2 text-sm min-h-[40px]">إغلاق</button>
+      </div>
+    </div>
+    <div class="sm:hidden text-sm text-slate-600 bg-slate-50 border rounded-lg p-3 mb-3 no-print">
+      📱 المعاينة الكاملة تظهر بشكل أفضل من جهاز حاسوب — لكن زر "🖨 طباعة / Save PDF" أعلاه يعمل مباشرة الآن ويحفظ كل البيانات كاملة حتى من الجوال.
+    </div>
+    <div id="printPreviewContent" class="hidden sm:block border rounded-lg p-4 bg-white overflow-x-auto"></div>
+  </div>
+</div>
+
+<!-- ============ PDF EXPORT QUEUE MODAL ============ -->
+<div id="pdfQueueModal" class="hidden fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4 overflow-y-auto no-print" onclick="closeModalOnBackdrop(event, 'pdfQueueModal')">
+  <div class="card p-4 sm:p-6 w-full max-w-md my-8" onclick="event.stopPropagation()">
+    <div class="flex justify-between items-center mb-4">
+      <h3 class="font-bold text-lg">📥 تصدير PDF لكل الصفوف</h3>
+      <button onclick="closeModal('pdfQueueModal')" class="text-slate-400 hover:text-slate-700 text-xl leading-none">✕</button>
+    </div>
+    <p class="text-sm text-slate-500 mb-4">
+      اضغط زر الطباعة لكل صف على حدة ← اختر <strong>Save as PDF</strong> في نافذة الطباعة ← سيتم تعليم ✓ تلقائياً.
+    </p>
+    <div id="pdfQueueList" class="space-y-2 mb-4"></div>
+    <div class="text-xs text-slate-400 border-t pt-3">
+      💡 السبب: المتصفحات تمنع فتح نوافذ متعددة تلقائياً لأسباب أمنية — نقرة واحدة لكل صف تضمن عمل الميزة على كل الأجهزة.
+    </div>
+  </div>
+</div>
+
+<!-- Hidden container actually sent to the printer -->
+<div id="printArea"></div>
+
+<!-- ============ ON-PAGE DEBUG CONSOLE (no browser DevTools needed) ============ -->
+<!-- Handy for troubleshooting from a phone, where opening a real console is
+     hard. Shows JS errors and the raw result of PIN-verification calls.
+     Safe to leave in; it's invisible until the 🐞 button is tapped. -->
+<button id="debugToggleBtn" onclick="document.getElementById('debugPanel').classList.toggle('hidden')"
+  class="no-print fixed bottom-2 left-2 z-50 bg-slate-800 text-white rounded-full w-9 h-9 text-sm opacity-70 hover:opacity-100">🐞</button>
+<div id="debugPanel" class="hidden no-print fixed bottom-14 left-2 right-2 sm:right-auto sm:w-96 max-h-64 overflow-y-auto bg-black/90 text-green-400 text-[11px] font-mono p-2 rounded-lg z-50">
+  <div class="flex justify-between items-center mb-1 text-white">
+    <span>Debug Log</span>
+    <div class="flex gap-2">
+      <button onclick="document.getElementById('debugLogContent').innerHTML=''" class="text-slate-300">مسح</button>
+      <button onclick="document.getElementById('debugPanel').classList.add('hidden')" class="text-slate-300">✕</button>
+    </div>
+  </div>
+  <div id="debugLogContent"></div>
+</div>
+
+
+
+<!-- ============ DAYS MANAGER MODAL ============ -->
+<div id="daysManagerModal" class="hidden fixed inset-0 bg-black/40 z-40 flex items-center justify-center p-4 overflow-y-auto no-print" onclick="closeModalOnBackdrop(event, 'daysManagerModal')">
+  <div class="card p-4 sm:p-6 w-full max-w-2xl my-8" onclick="event.stopPropagation()">
+    <div class="flex justify-between items-center mb-1">
+      <h3 class="font-bold text-lg">📅 نصاب الأيام / Days Schedule</h3>
+      <button onclick="closeModal('daysManagerModal')" class="text-slate-400 hover:text-slate-700 text-xl leading-none">✕</button>
+    </div>
+    <p class="text-xs text-slate-500 mb-4">عدل نصاب الأيام لكل مادة وفرع مباشرة من هذه اللوحة — التغييرات تُحفظ فوراً.</p>
+    <div id="daysManagerTable"></div>
+  </div>
+</div>
+
+<!-- App Scripts (order matters) -->
+<script src="js/config.js"></script>
+<script src="js/utils.js"></script>
+<script src="js/teacher.js"></script>
+<script src="js/admin.js"></script>
+<script src="js/export.js"></script>
+
+</body>
+</html>

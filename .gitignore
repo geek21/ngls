@@ -1,0 +1,11 @@
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# DB files — run in Supabase SQL Editor only, never served to browser
+# Keep them in the repo for reference but exclude from GitHub Pages deployment
+# (GitHub Pages ignores non-HTML/CSS/JS files automatically)
