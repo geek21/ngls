@@ -1,0 +1,52 @@
+  body { font-family: 'Segoe UI', Tahoma, Arial, sans-serif; }
+  .badge-done { background:#dcfce7; color:#166534; }
+  .badge-pending { background:#fee2e2; color:#991b1b; }
+  .card { background:#fff; border-radius:1rem; box-shadow:0 1px 3px rgba(0,0,0,.08); }
+  .fade-in { animation: fadeIn .2s ease-in; }
+  @keyframes fadeIn { from{opacity:0; transform:translateY(4px)} to{opacity:1; transform:translateY(0)} }
+
+  /* ---------- Clearer, more visible borders on ALL data-entry fields ---------- */
+  input, select, textarea {
+    border: 1.5px solid #94a3b8 !important; /* slate-400 — more visible than Tailwind's default light border */
+    transition: border-color .15s ease, box-shadow .15s ease;
+  }
+  input:focus, select:focus, textarea:focus {
+    outline: none;
+    border-color: #2563eb !important; /* blue-600 */
+    box-shadow: 0 0 0 3px rgba(37,99,235,0.15);
+  }
+
+  /* ---------- Mobile: floating sticky Save bar (teacher portal) ---------- */
+  #teacherSaveBar.mobile-floating {
+    position: fixed; inset-inline: 0; bottom: 0; z-index: 30;
+    background: rgba(255,255,255,.97); backdrop-filter: blur(4px);
+    border-top: 1px solid #e2e8f0; padding: .75rem 1rem;
+    box-shadow: 0 -2px 10px rgba(0,0,0,.06);
+  }
+  @media (min-width: 640px) {
+    #teacherSaveBar.mobile-floating { position: static; background: none; border: none; padding: 0; box-shadow: none; }
+  }
+
+  /* ---------- Mobile: sticky mini context bar while scrolling the teacher form ---------- */
+  #teacherStickyBar { position: sticky; top: 0; z-index: 20; }
+
+  /* ---------- Admin dashboard tabs ---------- */
+  .admin-tab-btn { border-bottom: 3px solid transparent; }
+  .admin-tab-btn.active { border-bottom-color: #2563eb; color: #2563eb; font-weight: 700; }
+
+  /* ---------- Accordion day cards (teacher entry) ---------- */
+  .day-accordion-header { cursor: pointer; user-select: none; }
+  .day-accordion-body { display: none; }
+  .day-accordion.open .day-accordion-body { display: block; }
+  .day-accordion .chevron { transition: transform .15s ease; }
+  .day-accordion.open .chevron { transform: rotate(180deg); }
+
+  /* ---------- PRINT LAYOUT ---------- */
+  @media print {
+    body * { visibility: hidden; }
+    #printArea, #printArea * { visibility: visible; }
+    #printArea { position: absolute; top:0; left:0; width:100%; }
+    .no-print { display:none !important; }
+    .print-subject-table { page-break-inside: avoid; margin-bottom: 18px; }
+  }
+  #printArea { display:none; }
