@@ -128,5 +128,19 @@ window.addEventListener("beforeunload", (e) => {
 });
 
 /* ------------------------- INIT ------------------------- */
-window.addEventListener("DOMContentLoaded", init);
-
+// Use window.onload instead of DOMContentLoaded to guarantee ALL scripts
+// (utils.js, teacher.js, admin.js, export.js) are fully parsed before init() runs.
+window.addEventListener("load", () => {
+  if (typeof init === "function") {
+    init();
+  } else {
+    // Fallback: wait for all scripts to finish executing
+    setTimeout(() => {
+      if (typeof init === "function") {
+        init();
+      } else {
+        debugLog("ERROR: init() still not found — check that js/utils.js loaded correctly");
+      }
+    }, 500);
+  }
+});
